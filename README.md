@@ -1,6 +1,7 @@
 ## AI Revenue Recovery System
 
 ## File Structure
+```
 Revora/
 │
 ├── frontend/
