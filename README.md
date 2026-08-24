@@ -86,3 +86,53 @@ Revora/
 ├── README.md
 ├── docker-compose.yml
 └── .gitignore
+```
+## Overall Structure
+```
+                    ┌──────────────────────┐
+                    │   Razorpay Test Mode │
+                    │   Payment Data/APIs  │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │   Revora Backend     │
+                    │      FastAPI         │
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │ Revenue Risk Detector│
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │    AI Diagnoser      │
+                    │ Why did it fail?     │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │ Recovery Decision    │
+                    │      Engine          │
+                    └──────────┬───────────┘
+                               │
+                    ┌──────────▼───────────┐
+                    │   Policy / Guardrail │
+                    │   Engine             │
+                    └──────────┬───────────┘
+                               │
+                  ┌────────────┼────────────┐
+                  ▼            ▼            ▼
+             Retry Payment   Reminder   Escalation
+                  │            │            │
+                  └────────────┼────────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │ Recovery Result      │
+                    │ ₹ Recovered          │
+                    └──────────┬───────────┘
+                               ▼
+                    ┌──────────────────────┐
+                    │    Audit Trail       │
+                    └──────────────────────┘
+```
