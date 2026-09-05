@@ -1,4 +1,3 @@
-import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -6,6 +5,7 @@ from app.core.clock import utcnow
 from app.core.config import settings
 from app.core.errors import ProviderUnavailable
 from app.core.money import rupees
+from app.core.seeded import token, unit
 from app.ml.features import FAILURE_RECOVERABILITY, METHOD_RECOVERABILITY, clamp
 
 BAD_REQUEST_ERROR = "BAD_REQUEST_ERROR"
@@ -30,17 +30,6 @@ DECLINES = {
     "OVERDUE_INVOICE": (BAD_REQUEST_ERROR, "Invoice is still unpaid"),
 }
 DEFAULT_DECLINE = (BAD_REQUEST_ERROR, "Payment was declined")
-
-
-def token(*parts) -> str:
-    seed = ":".join(str(part) for part in parts)
-    return hashlib.sha256(seed.encode()).hexdigest()[:14]
-
-
-def unit(*parts) -> float:
-    seed = ":".join(str(part) for part in parts)
-    digest = hashlib.sha256(seed.encode()).digest()
-    return int.from_bytes(digest[:8], "big") / float(1 << 64)
 
 
 def paise(amount: float) -> int:

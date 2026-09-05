@@ -120,6 +120,45 @@ def charge(db: Session, case: RecoveryCase, client: RazorpayClient | None = None
     return outcome
 
 
+def settle(
+    db: Session,
+    case: RecoveryCase,
+    amount: float,
+    *,
+    reason: str,
+    action: str = "",
+    reference: str = "",
+    actor: str = ACTOR_EXECUTOR,
+) -> dict:
+    payment = case.payment
+    payment.status = payment_state.transition(payment.status, success_state(payment.status))
+    payment.failure_code = None
+    payment.failure_reason = None
+    db.flush()
+    settled = rupees(amount)
+    audit.record(
+        db,
+        EVENT_PAYMENT_RECOVERED,
+        actor,
+        case_id=case.id,
+        action=action,
+        reason=reason,
+        meta={
+            "payment_id": payment.id,
+            "payment_status": payment.status,
+            "amount": settled,
+            "reference": reference,
+        },
+    )
+    return {
+        "success": True,
+        "payment_id": payment.id,
+        "payment_status": payment.status,
+        "amount": settled,
+        "reference": reference,
+    }
+
+
 def replayed(db: Session, key: str, action: str, actor: str, case_id: int) -> dict | None:
     record = idempotency.find(db, key)
     if record is None:
