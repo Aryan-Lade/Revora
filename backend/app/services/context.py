@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.clock import hours_between, start_of_ist_day, utcnow
+from app.core.clock import start_of_ist_day, utcnow
 from app.core.config import settings
 from app.core.constants import (
     ATTEMPT_OPEN,
