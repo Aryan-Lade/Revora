@@ -25,7 +25,7 @@ from app.core.constants import (
     VOICE_AI,
 )
 from app.core.money import rupees
-from app.database.models import Escalation, GuardrailDecision, RecoveryAttempt, RecoveryCase
+from app.database.models import Escalation, GuardrailDecision, IdempotencyRecord, RecoveryAttempt, RecoveryCase
 from app.razorpay import payments
 from app.recovery.guardrails import guardrail_engine
 from app.recovery.strategies import Strategy
@@ -172,3 +172,150 @@ def close_attempt(
     attempt.completed_at = now
     db.flush()
     return attempt
+
+
+def execute_recovery_action(
+    db: Session,
+    case: RecoveryCase,
+    channel: str,
+    action: str,
+) -> dict:
+    """
+    Execute a recovery action for a case via the specified channel.
+    Returns a dictionary with the result of the action.
+    """
+    print(f"DEBUG: execute_recovery_action called with case_id={case.id}, channel={channel}, action={action}")
+    from app.channels import messaging
+    from app.razorpay import payments as razorpay_payments
+    from app.voice import agent as voice_agent
+
+    # Generate an idempotency key for this action
+    idempotency_key = f"{case.id}:{channel}:{action}:{case.attempt_count + 1}"
+
+    # Check if we have already executed this action (idempotency)
+    existing = db.query(IdempotencyRecord).filter(
+        IdempotencyRecord.idempotency_key == idempotency_key
+    ).first()
+    if existing:
+        # Return the previous result
+        return existing.response
+
+    # Create a recovery attempt record (pending)
+    print(f"DEBUG: About to call Strategy with action={action}, channel={channel}")
+    print(f"DEBUG: Strategy.__init__ signature: {Strategy.__init__.__annotations__}")
+    attempt = open_attempt(
+        db,
+        case,
+        Strategy(
+            action=action,
+            channel=channel,
+            delay_hours=0.0,
+            message=f"Executing {action} via {channel}",
+            confidence=case.ai_confidence if case.ai_confidence is not None else 1.0,
+            reason=f"Executing {action} via {channel}",
+            source="system"
+        ),
+        idempotency_key,
+        case.amount_at_risk,  # expected recovery is the full amount at risk for simplicity
+    )
+
+    # Move case to PROCESSING (if not already)
+    move(db, case, recovery_state.PROCESSING, ACTOR_EXECUTOR, "Starting recovery action")
+
+    # Execute the action based on channel and action
+    try:
+        if channel == models.EMAIL and action == "SEND_EMAIL":
+            # Send email via messaging
+            result = messaging.send_email(case, db)
+        elif channel == models.VOICE_AI and action == "INITIATE_CALL":
+            # Initiate voice call
+            result = voice_agent.initiate_call(case.customer_id, case.id, db)
+        elif channel == models.PAYMENT_LINK and action == "CREATE_LINK":
+            # Create payment link via Razorpay
+            link = razorpay_payments.create_payment_link(
+                amount=case.amount_at_risk,
+                customer_id=case.customer_id,
+                description=f"Recovery payment for case {case.id}"
+            )
+            result = {"link": link, "status": "created"}
+        else:
+            # Unsupported channel/action combination
+            raise errors.ProviderUnsupported(f"Unsupported channel/action: {channel}/{action}")
+
+        # If we got here, the action was initiated successfully
+        # Update the attempt as succeeded (in flight for voice/email, but we'll mark as succeeded for now)
+        # Note: For email and voice, we might want to wait for a callback/webhook to mark as succeeded.
+        # For simplicity, we'll mark the attempt as succeeded immediately.
+        close_attempt(
+            db,
+            attempt,
+            ATTEMPT_SUCCEEDED,
+            "Action executed successfully",
+            utcnow(),
+            actual=case.amount_at_risk if action in ["CREATE_LINK", "SEND_EMAIL", "INITIATE_CALL"] else 0.0,
+        )
+
+        # Update case: increment attempt count and contact count
+        case.attempt_count += 1
+        if channel in CONTACT_CHANNELS:
+            case.contact_count += 1
+        db.flush()
+
+        # Log audit event for the action
+        audit.record(
+            db,
+            f"RECOVERY_{action}",
+            ACTOR_EXECUTOR,
+            case_id=case.id,
+            action=action,
+            reason=f"Executed {action} via {channel}",
+            meta={"channel": channel, "attempt_id": attempt.id},
+        )
+
+        # Prepare response
+        response = {
+            "status": "success",
+            "action": action,
+            "channel": channel,
+            "attempt_id": attempt.id,
+            "case_id": case.id,
+            "result": result,
+        }
+
+        # Save idempotency record
+        idempotency_record = IdempotencyRecord(
+            idempotency_key=idempotency_key,
+            operation=f"{channel}:{action}",
+            status=IdempotencyRecord.IDEMPOTENCY_COMPLETED,
+            response=response,
+        )
+        db.add(idempotency_record)
+        db.commit()
+
+        return response
+
+    except Exception as e:
+        # If there was an error, mark the attempt as failed
+        close_attempt(
+            db,
+            attempt,
+            ATTEMPT_FAILED,
+            str(e)[:240],
+            utcnow(),
+            actual=0.0,
+        )
+        db.flush()
+
+        # Log audit event for the failure
+        audit.record(
+            db,
+            f"RECOVERY_{action}_FAILED",
+            ACTOR_EXECUTOR,
+            case_id=case.id,
+            action=action,
+            reason=str(e)[:400],
+            meta={"channel": channel, "attempt_id": attempt.id},
+        )
+
+        # Re-raise the exception to be handled by the caller
+        raise

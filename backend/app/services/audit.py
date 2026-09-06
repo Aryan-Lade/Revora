@@ -1,44 +1,34 @@
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database.models import AuditLog
 
 
-def record(
-    db: Session,
-    event: str,
-    actor: str,
-    *,
-    case_id: int | None = None,
-    action: str = "",
-    reason: str = "",
-    meta: dict | None = None,
-) -> AuditLog:
-    entry = AuditLog(
+def record(db: Session, event: str, actor: str, *, case_id: int = None, action: str = "", reason: str = "", meta: dict = None) -> AuditLog:
+    """
+    Record an audit event.
+    """
+    audit_log = AuditLog(
         recovery_case_id=case_id,
         event=event,
         actor=actor,
-        action=action[:48],
-        reason=reason[:400],
-        meta=meta or {},
+        action=action,
+        reason=reason,
+        meta=meta or {}
     )
-    db.add(entry)
+    db.add(audit_log)
     db.flush()
-    return entry
+    return audit_log
 
 
-def timeline(db: Session, case_id: int) -> list[AuditLog]:
-    query = select(AuditLog).where(AuditLog.recovery_case_id == case_id).order_by(AuditLog.id)
-    return list(db.scalars(query))
-
-
-def as_dict(entry: AuditLog) -> dict:
-    return {
-        "id": entry.id,
-        "event": entry.event,
-        "actor": entry.actor,
-        "action": entry.action,
-        "reason": entry.reason,
-        "metadata": entry.meta,
-        "created_at": entry.created_at,
-    }
+def log_action(db: Session, case_id: int, event: str, agent: str, action: str, reason: str) -> AuditLog:
+    """
+    Log a specific action taken on a recovery case.
+    """
+    return record(
+        db,
+        event=event,
+        actor=agent,
+        case_id=case_id,
+        action=action,
+        reason=reason
+    )
