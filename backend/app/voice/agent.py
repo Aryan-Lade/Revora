@@ -311,3 +311,58 @@ def call(
         call_start_latency_ms=start_ms,
         transcript=transcript,
     )
+
+
+def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
+    from app.database.models import RecoveryCase
+    from app.services import context as context_service
+
+    case = db.query(RecoveryCase).filter(RecoveryCase.id == recovery_case_id).first()
+    if case is None:
+        return {"error": "Recovery case not found"}
+    ctx = context_service.build(db, case)
+    outcome = call(db, case, ctx)
+    db.commit()
+    return outcome.as_dict()
+
+
+def handle_customer_response(session_id: int, customer_response: str, db) -> dict:
+    from app.database.models import VoiceSession
+    session = db.query(VoiceSession).filter(VoiceSession.id == session_id).first()
+    if session is None:
+        return {"error": "Voice session not found"}
+    transcript = list(session.transcript or [])
+    transcript.append({
+        "role": "customer",
+        "text": customer_response,
+        "state": session.status,
+        "at": utcnow().isoformat(),
+    })
+    session.transcript = transcript
+    db.commit()
+    return {"session_id": session_id, "status": session.status, "transcript_length": len(transcript)}
+
+
+def get_provider_health(db) -> dict:
+    from sqlalchemy import func
+    from app.database.models import VoiceSession
+
+    total = db.query(func.count(VoiceSession.id)).scalar() or 0
+    success = db.query(func.count(VoiceSession.id)).filter(
+        VoiceSession.recovered_amount > 0
+    ).scalar() or 0
+    avg_health = db.query(func.avg(VoiceSession.health_latency_ms)).scalar() or 0
+    avg_start = db.query(func.avg(VoiceSession.call_start_latency_ms)).scalar() or 0
+    warm_count = db.query(func.count(VoiceSession.id)).filter(VoiceSession.warm.is_(True)).scalar() or 0
+
+    return {
+        "status": "HEALTHY",
+        "provider": "demo",
+        "total_calls": total,
+        "success_count": success,
+        "failure_count": total - success,
+        "latency_ms": int(avg_health),
+        "call_start_latency_ms": int(avg_start),
+        "warm_pool_size": warm_count,
+        "warm": True,
+    }

@@ -20,9 +20,10 @@ def record(db: Session, event: str, actor: str, *, case_id: int = None, action: 
     return audit_log
 
 
-def log_action(db: Session, case_id: int, event: str, agent: str, action: str, reason: str) -> AuditLog:
+def log_action(*, db: Session, case_id: int, event: str, agent: str, action: str, reason: str) -> AuditLog:
     """
     Log a specific action taken on a recovery case.
+    All arguments must be passed as keyword arguments.
     """
     return record(
         db,

@@ -157,3 +157,40 @@ def scan(db: Session, now: datetime | None = None) -> dict:
         "expected_recovery": rupees(sum(float(case.expected_recovery) for case in opened)),
         "references": [case.reference for case in opened],
     }
+
+
+def handle_failed_payment_webhook(payload: dict, db: Session) -> None:
+    data = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    payment_id = data.get("id")
+    if not payment_id:
+        return
+    payment = db.scalar(select(Payment).where(Payment.razorpay_payment_id == payment_id))
+    if payment is None:
+        return
+    now = utcnow()
+    payment.status = payment_state.FAILED
+    payment.failure_reason = data.get("error_description", "")
+    payment.failure_code = data.get("error_code", "")
+    db.flush()
+    open_case(db, payment, now)
+    db.commit()
+
+
+def handle_successful_payment_webhook(payload: dict, db: Session) -> None:
+    data = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    payment_id = data.get("id")
+    if not payment_id:
+        return
+    payment = db.scalar(select(Payment).where(Payment.razorpay_payment_id == payment_id))
+    if payment is None:
+        return
+    payment.status = payment_state.CAPTURED
+    payment.failure_reason = None
+    payment.failure_code = None
+    db.flush()
+    recovery_case = case_for(db, payment.id)
+    if recovery_case and recovery_case.status not in {recovery_state.RECOVERED, recovery_state.STOPPED}:
+        from app.recovery.executor import mark_recovered
+        mark_recovered(db, recovery_case, float(payment.amount), "razorpay_webhook",
+                       f"Payment {payment_id} captured via Razorpay webhook")
+    db.commit()

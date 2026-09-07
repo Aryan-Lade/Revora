@@ -10,7 +10,6 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.allowed_origins,
@@ -19,8 +18,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Register error handlers
 register_error_handlers(app)
+
+
+@app.on_event("startup")
+def startup():
+    from app.database.database import create_all, SessionLocal
+    create_all()
+    db = SessionLocal()
+    try:
+        from app.data.seeder import seed_if_empty
+        seed_if_empty(db)
+    finally:
+        db.close()
 
 
 @app.get("/api/health")
@@ -28,7 +38,6 @@ async def health_check():
     return {"status": "healthy", "service": "revora", "environment": settings.environment}
 
 
-# Import and include routers here to avoid circular imports
 from app.api import (
     customers,
     subscriptions,

@@ -180,6 +180,7 @@ class RecoveryCase(RecoveryCaseBase):
     customer_id: int
     payment_id: int
     subscription_id: Optional[int] = None
+    customer: Optional["CustomerBase"] = None
     created_at: datetime
     updated_at: datetime
     detected_at: datetime
@@ -379,6 +380,12 @@ class PromiseToPayBase(BaseModel):
     promised_date: datetime
     channel: Optional[str] = "email"
     status: Optional[str] = "active"
+    source_quote: Optional[str] = ""
+
+class PromiseToPayRequest(BaseModel):
+    amount: float
+    promised_date: datetime
+    channel: Optional[str] = "EMAIL"
     source_quote: Optional[str] = ""
 
 class PromiseToPayCreate(PromiseToPayBase):

@@ -1,83 +1,93 @@
 import React from 'react';
-import { Bar, Line, Pie, Funnel } from 'recharts';
+import {
+  BarChart, Bar,
+  LineChart, Line,
+  PieChart, Pie, Cell,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
+
+const COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899'];
 
 const Chart = ({ title, type, data }) => {
-  // We'll create a simple chart based on the type
-  // For simplicity, we'll assume data is in the format expected by recharts
-  // In a real app, we would transform the data accordingly
+  if (!data || data.length === 0) {
+    return (
+      <div className="bg-white rounded-lg shadow p-5">
+        <h3 className="text-sm font-medium text-gray-500 mb-2">{title}</h3>
+        <div className="h-48 flex items-center justify-center text-gray-400 text-sm">No data</div>
+      </div>
+    );
+  }
 
-  let chartContent = null;
+  let chart = null;
+
   if (type === 'bar') {
-    chartContent = (
-      <BarChart data={data}>
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-        <Bar dataKey="value" fill="#8884d8" />
-      </BarChart>
+    // Support single "value" key or multiple keys (all except "name")
+    const keys = Object.keys(data[0]).filter(k => k !== 'name');
+    chart = (
+      <ResponsiveContainer width="100%" height={220}>
+        <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip />
+          {keys.length > 1 && <Legend />}
+          {keys.map((k, i) => (
+            <Bar key={k} dataKey={k} fill={COLORS[i % COLORS.length]} radius={[3, 3, 0, 0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
     );
+
   } else if (type === 'line') {
-    chartContent = (
-      <LineChart data={data}>
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-        <Line type="monotone" dataKey="value" stroke="#82ca9d" />
-      </LineChart>
+    const keys = Object.keys(data[0]).filter(k => k !== 'name');
+    chart = (
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" />
+          <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+          <YAxis tick={{ fontSize: 11 }} />
+          <Tooltip />
+          {keys.length > 1 && <Legend />}
+          {keys.map((k, i) => (
+            <Line key={k} type="monotone" dataKey={k} stroke={COLORS[i % COLORS.length]} dot={false} strokeWidth={2} />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
     );
+
   } else if (type === 'pie') {
-    chartContent = (
-      <PieChart data={data}>
-        <Tooltip />
-        <Legend />
-        <Pie dataKey="value" nameKey="name" cx="50%" cy="50%" labelLine={false} label={({ name, value, percent }) => `${name}: ${percent}%`} innerRadius={60} outerRadius={80} fill="#8884d8" />
-      </PieChart>
+    chart = (
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart>
+          <Pie
+            data={data}
+            dataKey="value"
+            nameKey="name"
+            cx="50%"
+            cy="50%"
+            outerRadius={80}
+            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+            labelLine={false}
+          >
+            {data.map((_, i) => (
+              <Cell key={i} fill={COLORS[i % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+        </PieChart>
+      </ResponsiveContainer>
     );
-  } else if (type === 'funnel') {
-    // We don't have a funnel chart in recharts, so we'll use a bar chart for now
-    chartContent = (
-      <BarChart data={data}>
-        <XAxis dataKey="name" />
-        <YAxis />
-        <Tooltip />
-        <Legend />
-        <Bar dataKey="value" fill="#8884d8" />
-      </BarChart>
-    );
+
   } else {
-    chartContent = <div>Unsupported chart type</div>;
+    chart = <div className="text-gray-400 text-sm">Unsupported chart type: {type}</div>;
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-gray-500 mb-4">{title}</h3>
-      <div className="h-64 w-full">{chartContent}</div>
+    <div className="bg-white rounded-lg shadow p-5">
+      <h3 className="text-sm font-medium text-gray-500 mb-3">{title}</h3>
+      {chart}
     </div>
   );
 };
-
-// We need to define the chart components from recharts
-const BarChart = ({ children, data, ...props }) => (
-  <recharts.BarChart data={data} {...props}>
-    {children}
-  </recharts.BarChart>
-);
-const LineChart = ({ children, data, ...props }) => (
-  <recharts.LineChart data={data} {...props}>
-    {children}
-  </recharts.LineChart>
-);
-const PieChart = ({ children, data, ...props }) => (
-  <recharts.PieChart data={data} {...props}>
-    {children}
-  </recharts.PieChart>
-);
-const FunnelChart = ({ children, data, ...props }) => (
-  <recharts.BarChart data={data} {...props}> {/* Using BarChart as placeholder for Funnel */}
-    {children}
-  </recharts.BarChart>
-);
 
 export default Chart;

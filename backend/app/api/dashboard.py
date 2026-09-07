@@ -6,6 +6,8 @@ from typing import Dict
 from app.database.database import get_db
 from app.database import models
 from app.core import errors
+from app.core.constants import PROMISE_ACTIVE
+from app.state import recovery_state
 
 router = APIRouter()
 
@@ -15,16 +17,16 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     # Revenue at risk: sum of amount_at_risk for active recovery cases (not recovered, not stopped, not escalated)
     revenue_at_risk = db.query(func.sum(models.RecoveryCase.amount_at_risk)).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.DETECTED,
-            models.recovery_state.ANALYZING,
-            models.recovery_state.RECOMMENDED,
-            models.recovery_state.POLICY_CHECK,
-            models.recovery_state.WAITING,
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING,
-            models.recovery_state.CONTACTED,
-            models.recovery_state.PAYMENT_PENDING,
-            models.recovery_state.PROMISE_TO_PAY
+            recovery_state.DETECTED,
+            recovery_state.ANALYZING,
+            recovery_state.RECOMMENDED,
+            recovery_state.POLICY_CHECK,
+            recovery_state.WAITING,
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING,
+            recovery_state.CONTACTED,
+            recovery_state.PAYMENT_PENDING,
+            recovery_state.PROMISE_TO_PAY
         ])
     ).scalar() or 0.0
 
@@ -33,22 +35,22 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
         func.sum(models.RecoveryCase.amount_at_risk * models.RecoveryCase.recovery_probability)
     ).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.DETECTED,
-            models.recovery_state.ANALYZING,
-            models.recovery_state.RECOMMENDED,
-            models.recovery_state.POLICY_CHECK,
-            models.recovery_state.WAITING,
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING,
-            models.recovery_state.CONTACTED,
-            models.recovery_state.PAYMENT_PENDING,
-            models.recovery_state.PROMISE_TO_PAY
+            recovery_state.DETECTED,
+            recovery_state.ANALYZING,
+            recovery_state.RECOMMENDED,
+            recovery_state.POLICY_CHECK,
+            recovery_state.WAITING,
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING,
+            recovery_state.CONTACTED,
+            recovery_state.PAYMENT_PENDING,
+            recovery_state.PROMISE_TO_PAY
         ])
     ).scalar() or 0.0
 
     # Recovered revenue: sum of recovered_amount for recovered cases
     recovered_revenue = db.query(func.sum(models.RecoveryCase.recovered_amount)).filter(
-        models.RecoveryCase.status == models.recovery_state.RECOVERED
+        models.RecoveryCase.status == recovery_state.RECOVERED
     ).scalar() or 0.0
 
     # Recovery rate: recovered revenue / (recovered revenue + revenue at risk) * 100
@@ -59,22 +61,22 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     # Active cases: count of active recovery cases (same statuses as revenue_at_risk)
     active_cases = db.query(func.count(models.RecoveryCase.id)).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.DETECTED,
-            models.recovery_state.ANALYZING,
-            models.recovery_state.RECOMMENDED,
-            models.recovery_state.POLICY_CHECK,
-            models.recovery_state.WAITING,
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING,
-            models.recovery_state.CONTACTED,
-            models.recovery_state.PAYMENT_PENDING,
-            models.recovery_state.PROMISE_TO_PAY
+            recovery_state.DETECTED,
+            recovery_state.ANALYZING,
+            recovery_state.RECOMMENDED,
+            recovery_state.POLICY_CHECK,
+            recovery_state.WAITING,
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING,
+            recovery_state.CONTACTED,
+            recovery_state.PAYMENT_PENDING,
+            recovery_state.PROMISE_TO_PAY
         ])
     ).scalar() or 0
 
     # Escalated cases: count of cases with status ESCALATED
     escalated_cases = db.query(func.count(models.RecoveryCase.id)).filter(
-        models.RecoveryCase.status == models.recovery_state.ESCALATED
+        models.RecoveryCase.status == recovery_state.ESCALATED
     ).scalar() or 0
 
     # Policy blocks: count of policy decisions where allowed is False (we'll approximate by counting cases with policy blocked reason)
@@ -85,13 +87,13 @@ def get_dashboard_overview(db: Session = Depends(get_db)):
     # We'll skip for now and set to 0, or we can count the cases that have a policy decision with allowed=False by joining.
     # Given time, we'll do a simple approximation: count of cases with status FAILED and blocked_reason containing 'POLICY'
     policy_blocks = db.query(func.count(models.RecoveryCase.id)).filter(
-        models.RecoveryCase.status == models.recovery_state.FAILED,
+        models.RecoveryCase.status == recovery_state.FAILED,
         models.RecoveryCase.blocked_reason.like('%POLICY%')
     ).scalar() or 0
 
     # Promises to pay: count of active promises to pay
     promises_to_pay = db.query(func.count(models.PromiseToPay.id)).filter(
-        models.PromiseToPay.status == models.PROMISE_ACTIVE
+        models.PromiseToPay.status == PROMISE_ACTIVE
     ).scalar() or 0
 
     return {
@@ -118,16 +120,16 @@ def get_dashboard_revenue(db: Session = Depends(get_db)):
     # We'll reuse the revenue_at_risk and expected_recoverable from above
     revenue_at_risk = db.query(func.sum(models.RecoveryCase.amount_at_risk)).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.DETECTED,
-            models.recovery_state.ANALYZING,
-            models.recovery_state.RECOMMENDED,
-            models.recovery_state.POLICY_CHECK,
-            models.recovery_state.WAITING,
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING,
-            models.recovery_state.CONTACTED,
-            models.recovery_state.PAYMENT_PENDING,
-            models.recovery_state.PROMISE_TO_PAY
+            recovery_state.DETECTED,
+            recovery_state.ANALYZING,
+            recovery_state.RECOMMENDED,
+            recovery_state.POLICY_CHECK,
+            recovery_state.WAITING,
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING,
+            recovery_state.CONTACTED,
+            recovery_state.PAYMENT_PENDING,
+            recovery_state.PROMISE_TO_PAY
         ])
     ).scalar() or 0.0
 
@@ -135,16 +137,16 @@ def get_dashboard_revenue(db: Session = Depends(get_db)):
         func.sum(models.RecoveryCase.amount_at_risk * models.RecoveryCase.recovery_probability)
     ).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.DETECTED,
-            models.recovery_state.ANALYZING,
-            models.recovery_state.RECOMMENDED,
-            models.recovery_state.POLICY_CHECK,
-            models.recovery_state.WAITING,
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING,
-            models.recovery_state.CONTACTED,
-            models.recovery_state.PAYMENT_PENDING,
-            models.recovery_state.PROMISE_TO_PAY
+            recovery_state.DETECTED,
+            recovery_state.ANALYZING,
+            recovery_state.RECOMMENDED,
+            recovery_state.POLICY_CHECK,
+            recovery_state.WAITING,
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING,
+            recovery_state.CONTACTED,
+            recovery_state.PAYMENT_PENDING,
+            recovery_state.PROMISE_TO_PAY
         ])
     ).scalar() or 0.0
 
@@ -152,8 +154,8 @@ def get_dashboard_revenue(db: Session = Depends(get_db)):
     # We'll approximate by cases that are in APPROVED or PROCESSING (meaning they passed policy and guardrails and are waiting to act)
     eligible = db.query(func.sum(models.RecoveryCase.amount_at_risk)).filter(
         models.RecoveryCase.status.in_([
-            models.recovery_state.APPROVED,
-            models.recovery_state.PROCESSING
+            recovery_state.APPROVED,
+            recovery_state.PROCESSING
         ])
     ).scalar() or 0.0
 
@@ -161,16 +163,16 @@ def get_dashboard_revenue(db: Session = Depends(get_db)):
     intervention = db.query(func.sum(models.RecoveryCase.amount_at_risk)).filter(
         models.RecoveryCase.contact_count > 0,
         models.RecoveryCase.status.not_in([
-            models.recovery_state.RECOVERED,
-            models.recovery_state.FAILED,
-            models.recovery_state.STOPPED,
-            models.recovery_state.ESCALATED,
-            models.recovery_state.PROMISE_TO_PAY  # Note: promise to pay is a form of intervention, but we'll count it separately?
+            recovery_state.RECOVERED,
+            recovery_state.FAILED,
+            recovery_state.STOPPED,
+            recovery_state.ESCALATED,
+            recovery_state.PROMISE_TO_PAY  # Note: promise to pay is a form of intervention, but we'll count it separately?
         ])
     ).scalar() or 0.0
 
     recovered = db.query(func.sum(models.RecoveryCase.recovered_amount)).filter(
-        models.RecoveryCase.status == models.recovery_state.RECOVERED
+        models.RecoveryCase.status == recovery_state.RECOVERED
     ).scalar() or 0.0
 
     return {

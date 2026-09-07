@@ -53,3 +53,15 @@ def delete_gateway(gateway_id: int, db: Session = Depends(get_db)):
     db.delete(db_gateway)
     db.commit()
     return None
+
+
+@router.post("/{gateway_id}/toggle")
+def toggle_gateway(gateway_id: int, db: Session = Depends(get_db)):
+    from app.core.constants import GATEWAY_HEALTHY, GATEWAY_UNAVAILABLE
+    db_gateway = db.query(models.GatewayProvider).filter(models.GatewayProvider.id == gateway_id).first()
+    if db_gateway is None:
+        raise HTTPException(status_code=404, detail="Gateway provider not found")
+    db_gateway.status = GATEWAY_UNAVAILABLE if db_gateway.status == GATEWAY_HEALTHY else GATEWAY_HEALTHY
+    db.commit()
+    db.refresh(db_gateway)
+    return {"id": db_gateway.id, "name": db_gateway.name, "status": db_gateway.status}

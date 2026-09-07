@@ -1,80 +1,67 @@
-from app.services import context, scoring, audit
+from app.services import context as context_service, scoring, audit
 from app.recovery import detector, executor, guardrails, risk, strategies
-from app.agent import agent  # This would be circular, so we remove this line and define the agent functions here
 from app.ai import provider as ai_provider
 from app.ml import model as ml_model
-from app.policy import engine as policy_engine
-from app.channels import selector as channel_selector
+from app.policy import engine as policy_engine_module
+from app.channels.selector import select as select_channel
 from app.gateway import pool as gateway_pool
 from app.voice import agent as voice_agent
 from app.razorpay import client as razorpay_client
 from app.database import models
 from app.core import errors
+from app.core.constants import EMAIL
+from app.state import recovery_state
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
 
-# We'll define the agent as a set of functions that can be called by the recovery API
-# For the purpose of this task, we'll implement the observe, predict, reason, plan, act, measure steps
 
 def observe_case(db: Session, case_id: int):
     """
     Observe step: gather information about the case.
-    In reality, this is done by building the context.
     """
-    from app.services.context import build
     case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
     if not case:
         raise errors.NotFound(f"Recovery case {case_id} not found")
-    # Build context (which includes customer, payment, etc.)
-    ctx = build(db, case)
+    ctx = context_service.build(db, case)
     return ctx
 
+
 def predict_recovery(ctx: dict):
-    """
-    Predict step: use ML to predict recovery probability.
-    """
-    from app.ml import model as ml_model
-    # In a real system, we would use the ML model to predict
-    # For now, we'll use a placeholder
     recovery_probability = ml_model.predict_recovery_probability(ctx)
     return recovery_probability
+
 
 def reason_about_case(ctx: dict, recovery_probability: float):
     """
     Reason step: use AI to diagnose and recommend action.
     """
-    from app.ai import provider as ai_provider
-    # Get AI recommendation
-    ai_rec = ai_provider.get_recovery_recommendation(ctx, recovery_probability)
+    ai_rec = ai_provider.ai_provider.get_recovery_recommendation(ctx, recovery_probability)
     return ai_rec
 
-def plan_action(ctx: dict, ai_rec: dict, db: Session):
+
+def plan_action(ctx: dict, ai_rec, db: Session):
     """
     Plan step: check policy and guardrails, select channel.
     """
-    from app.policy import engine as policy_engine
-    from app.recovery import guardrails
-    from app.channels import selector as channel_selector
+    from app.policy.engine import policy_engine
+    from app.recovery.guardrails import guardrail_engine
 
-    # We need to create a temporary case object for the policy and guardrail checks
-    # But note: the ctx already has the case information. We'll create a mock case object?
-    # Alternatively, we can pass the case ID and use the db to get the case.
-    # For simplicity, we'll assume we have the case ID in ctx.
     case_id = ctx["case"]["id"]
     case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
 
-    # Check policy
-    policy_decision = policy_engine.check_policy(case, db)
+    # Check policy using evaluate(context, channel)
+    channel = getattr(ai_rec, "recommended_channel", EMAIL)
+    policy_decision = policy_engine.evaluate(ctx, channel)
     if not policy_decision.allowed:
-        raise errors.PolicyBlocked(detail={"reason": policy_decision.reason})
+        raise errors.PolicyBlocked(message="Policy blocked", detail={"reason": policy_decision.reason})
 
-    # Check guardrails
-    guardrail_decision = guardrails.check_guardrails(case, db)
+    # Check guardrails using evaluate(context, action)
+    action = getattr(ai_rec, "recommended_action", "EMAIL")
+    guardrail_decision = guardrail_engine.evaluate(ctx, action)
     if not guardrail_decision.allowed:
-        raise errors.GuardrailBlocked(detail={"reason": guardrail_decision.reason})
+        raise errors.GuardrailBlocked(message="Guardrail blocked", detail={"reason": guardrail_decision.reason})
 
     # Select channel
-    channel_selection = channel_selector.select_channel(case, db)
+    channel_selection = select_channel(db=db, case=case, context=ctx)
 
     return {
         "policy_decision": policy_decision,
@@ -82,24 +69,36 @@ def plan_action(ctx: dict, ai_rec: dict, db: Session):
         "channel_selection": channel_selection
     }
 
-def act_on_plan(case_id: int, plan: dict, db: Session):
+
+def act_on_plan(case_id: int, plan_result: dict, db: Session):
     """
     Act step: execute the recovery action.
     """
-    from app.recovery import executor
     case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
     if not case:
         raise errors.NotFound(f"Recovery case {case_id} not found")
 
-    # Execute the action
+    channel_selection = plan_result.get("channel_selection")
+    if channel_selection is None:
+        raise errors.GuardrailBlocked(message="No channel selected", detail={})
+
+    action_map = {
+        EMAIL: "SEND_EMAIL",
+        "VOICE_AI": "INITIATE_CALL",
+        "PAYMENT_LINK": "CREATE_LINK"
+    }
+    action = action_map.get(channel_selection.channel, channel_selection.channel)
+
+    # Correct argument order: db, case, channel, action
     result = executor.execute_recovery_action(
-        case,
-        plan["channel_selection"]["channel"],
-        plan["channel_selection"]["action"],
-        db
+        db=db,
+        case=case,
+        channel=channel_selection.channel,
+        action=action,
     )
 
     return result
+
 
 def measure_result(case_id: int, action_result: dict, db: Session):
     """
@@ -109,9 +108,5 @@ def measure_result(case_id: int, action_result: dict, db: Session):
     if not case:
         raise errors.NotFound(f"Recovery case {case_id} not found")
 
-    # Update the case based on the action result
-    # For example, if the action was successful, we might update the status to RECOVERED
-    # But note: the executor should have updated the case already.
-    # We'll just return the updated case for now.
     db.refresh(case)
     return case

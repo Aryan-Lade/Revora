@@ -1,33 +1,66 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
-const useApi = (endpoint) => {
-  const [data, setData] = useState(null);
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+
+const useApi = (endpoint, refetchKey = 0) => {
+  const [data, setData]       = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError]     = useState(null);
 
   useEffect(() => {
-    const fetchData = async () => {
+    if (!endpoint) return;
+    let cancelled = false;
+
+    const run = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const response = await fetch(`${process.env.VITE_API_BASE_URL}${endpoint}`);
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status}`);
-        }
-        const result = await response.json();
-        setData(result);
-        setError(null);
+        const res = await fetch(`${API_BASE}${endpoint}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const result = await res.json();
+        if (!cancelled) { setData(result); setError(null); }
       } catch (err) {
-        setError(err.message);
-        setData(null);
+        if (!cancelled) { setError(err.message); setData(null); }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     };
 
-    fetchData();
-  }, [endpoint]);
+    run();
+    return () => { cancelled = true; };
+  }, [endpoint, refetchKey]);
 
   return { data, loading, error };
 };
 
+const usePost = (endpoint) => {
+  const [data, setData]       = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError]     = useState(null);
+
+  const post = useCallback(async (body = null) => {
+    setLoading(true);
+    setError(null);
+    setData(null);
+    try {
+      const res = await fetch(`${API_BASE}${endpoint}`, {
+        method: 'POST',
+        headers: body ? { 'Content-Type': 'application/json' } : {},
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || JSON.stringify(result));
+      setData(result);
+      return result;
+    } catch (err) {
+      setError(err.message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [endpoint]);
+
+  return { post, data, loading, error };
+};
+
+export { useApi, usePost };
 export default useApi;

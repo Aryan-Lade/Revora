@@ -16,5 +16,6 @@ env/
 .DS_Store
 .vscode/
 .idea/
+temp.py
 coverage/
 .ruff_cache/
