@@ -403,6 +403,8 @@ class PromiseToPay(PromiseToPayBase):
     id: int
     customer_id: int
     recovery_case_id: int
+    customer_name: Optional[str] = None
+    next_eligible_contact: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 

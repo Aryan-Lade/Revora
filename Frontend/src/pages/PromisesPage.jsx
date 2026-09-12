@@ -28,7 +28,7 @@ const PromisesPage = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {['Customer ID', 'Amount', 'Promised Date', 'Channel', 'Status', 'Quote'].map(h => (
+                {['Customer', 'Amount', 'Promised Date', 'Channel', 'Status', 'Next Eligible Contact'].map(h => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
@@ -36,7 +36,7 @@ const PromisesPage = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {list.map((p, i) => (
                 <tr key={p.id ?? i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{p.customer_id}</td>
+                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{p.customer_name || `Customer #${p.customer_id}`}</td>
                   <td className="px-4 py-3 text-sm font-medium">₹{Number(p.amount).toLocaleString('en-IN')}</td>
                   <td className="px-4 py-3 text-sm">{new Date(p.promised_date).toLocaleDateString('en-IN')}</td>
                   <td className="px-4 py-3 text-sm">{p.channel}</td>
@@ -45,7 +45,9 @@ const PromisesPage = () => {
                       {p.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 max-w-xs truncate">{p.source_quote || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-indigo-700 font-medium">
+                    {p.next_eligible_contact ? new Date(p.next_eligible_contact).toLocaleDateString('en-IN') : '—'}
+                  </td>
                 </tr>
               ))}
             </tbody>

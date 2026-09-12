@@ -316,12 +316,49 @@ def call(
 def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
     from app.database.models import RecoveryCase
     from app.services import context as context_service
+    from app.policy.engine import policy_engine
+    from app.recovery.executor import mark_recovered, move
+    from app.state import recovery_state
 
     case = db.query(RecoveryCase).filter(RecoveryCase.id == recovery_case_id).first()
     if case is None:
         return {"error": "Recovery case not found"}
     ctx = context_service.build(db, case)
+    policy_res = policy_engine.evaluate(ctx, VOICE_AI)
+    if not policy_res.allowed:
+        audit.record(
+            db,
+            "POLICY_BLOCKED",
+            ACTOR_VOICE,
+            case_id=case.id,
+            action=VOICE_AI,
+            reason=policy_res.reason,
+            meta={"blocked_by": policy_res.blocked_by, "channel": VOICE_AI},
+        )
+        db.commit()
+        return {
+            "status": "POLICY_BLOCKED",
+            "blocked": True,
+            "error": "Policy blocked",
+            "reason": policy_res.reason,
+            "blocked_by": policy_res.blocked_by,
+            "next_contact_at": policy_res.next_contact_at.isoformat() if policy_res.next_contact_at else None,
+        }
     outcome = call(db, case, ctx)
+    if outcome.promise_id:
+        case.status = recovery_state.PROMISE_TO_PAY
+        case.blocked_reason = (
+            f"Active promise-to-pay until {outcome.promised_date:%d %b %Y}"
+            if outcome.promised_date
+            else "Active promise-to-pay"
+        )
+    elif outcome.paid:
+        mark_recovered(db, case, rupees(case.amount_at_risk), ACTOR_VOICE, "Paid on call", utcnow())
+    elif outcome.escalate:
+        try:
+            move(db, case, recovery_state.ESCALATED, ACTOR_VOICE, "Escalated during voice call")
+        except Exception:
+            case.status = recovery_state.ESCALATED
     db.commit()
     return outcome.as_dict()
 

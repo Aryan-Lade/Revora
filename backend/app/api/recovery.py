@@ -343,6 +343,79 @@ def simulate_payment(case_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.post("/{case_id}/voice/start")
+def start_case_voice_call(case_id: int, db: Session = Depends(get_db)):
+    case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Recovery case not found")
+    return voice_agent.initiate_call(case.customer_id, case.id, db)
+
+
+@router.post("/{case_id}/voice/response")
+def handle_case_voice_response(case_id: int, payload: dict, db: Session = Depends(get_db)):
+    case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Recovery case not found")
+    session_id = payload.get("session_id")
+    if not session_id:
+        active_session = (
+            db.query(models.VoiceSession)
+            .filter(models.VoiceSession.recovery_case_id == case_id)
+            .order_by(models.VoiceSession.id.desc())
+            .first()
+        )
+        if not active_session:
+            raise HTTPException(status_code=404, detail="No voice session found for case")
+        session_id = active_session.id
+    customer_response = payload.get("response", "")
+    return voice_agent.handle_customer_response(session_id, customer_response, db)
+
+
+@router.post("/{case_id}/promise-to-pay/resolve")
+def resolve_promise_to_pay(case_id: int, payload: dict = None, db: Session = Depends(get_db)):
+    payload = payload or {}
+    resolution = payload.get("status", "FULFILLED").upper()
+    case = db.query(models.RecoveryCase).filter(models.RecoveryCase.id == case_id).first()
+    if case is None:
+        raise HTTPException(status_code=404, detail="Recovery case not found")
+    promise = (
+        db.query(models.PromiseToPay)
+        .filter(models.PromiseToPay.recovery_case_id == case_id, models.PromiseToPay.status == PROMISE_ACTIVE)
+        .first()
+    )
+    if not promise:
+        raise HTTPException(status_code=404, detail="No active promise to pay found for case")
+    promise.status = resolution
+    if resolution == "FULFILLED":
+        mark_recovered(db, case, float(case.amount_at_risk), "promise_service", "Promise fulfilled")
+        audit.log_action(
+            db=db,
+            case_id=case.id,
+            event="PROMISE_TO_PAY_FULFILLED",
+            agent="system",
+            action="resolve",
+            reason=f"Promise of Rs {float(promise.amount):,.0f} fulfilled",
+        )
+    else:
+        case.status = recovery_state.BROKEN_PROMISE
+        case.blocked_reason = f"Promise {resolution.lower()}"
+        audit.log_action(
+            db=db,
+            case_id=case.id,
+            event="PROMISE_TO_PAY_BROKEN",
+            agent="system",
+            action="resolve",
+            reason=f"Promise marked as {resolution}",
+        )
+    db.commit()
+    return {
+        "status": "resolved",
+        "promise_id": promise.id,
+        "promise_status": promise.status,
+        "case_status": case.status,
+    }
+
+
 webhook_router = APIRouter()
 
 

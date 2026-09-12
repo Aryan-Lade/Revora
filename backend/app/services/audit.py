@@ -4,9 +4,6 @@ from app.database.models import AuditLog
 
 
 def record(db: Session, event: str, actor: str, *, case_id: int = None, action: str = "", reason: str = "", meta: dict = None) -> AuditLog:
-    """
-    Record an audit event.
-    """
     audit_log = AuditLog(
         recovery_case_id=case_id,
         event=event,
@@ -21,10 +18,6 @@ def record(db: Session, event: str, actor: str, *, case_id: int = None, action: 
 
 
 def log_action(*, db: Session, case_id: int, event: str, agent: str, action: str, reason: str) -> AuditLog:
-    """
-    Log a specific action taken on a recovery case.
-    All arguments must be passed as keyword arguments.
-    """
     return record(
         db,
         event=event,
@@ -32,4 +25,13 @@ def log_action(*, db: Session, case_id: int, event: str, agent: str, action: str
         case_id=case_id,
         action=action,
         reason=reason
+    )
+
+
+def timeline(db: Session, case_id: int) -> list[AuditLog]:
+    return (
+        db.query(AuditLog)
+        .filter(AuditLog.recovery_case_id == case_id)
+        .order_by(AuditLog.created_at.asc())
+        .all()
     )

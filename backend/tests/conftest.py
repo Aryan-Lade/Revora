@@ -2,9 +2,46 @@ import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.core.money import rupees
 from app.database.database import Base
 from app.database.models import Customer, Payment, RecoveryCase
+from app.razorpay.client import BAD_REQUEST_ERROR, ChargeResult, RazorpayClient
 from app.state import payment_state
+
+SUCCESS = (True, None, None)
+
+
+class ScriptedClient(RazorpayClient):
+    name = "scripted"
+
+    def __init__(self, *outcomes):
+        self.outcomes = list(outcomes)
+        self.calls: list[str] = []
+
+    def charge(
+        self,
+        *,
+        payment_id: str,
+        amount: float,
+        method: str,
+        failure_type: str,
+        attempt_number: int,
+        gateway: str,
+        probability: float | None = None,
+    ) -> ChargeResult:
+        self.calls.append(gateway)
+        outcome = self.outcomes.pop(0) if self.outcomes else (False, BAD_REQUEST_ERROR, "Declined")
+        success, code, reason = outcome
+        return ChargeResult(
+            success=success,
+            amount=rupees(amount),
+            provider=self.name,
+            gateway=gateway,
+            latency_ms=210,
+            reference=f"pay_{gateway}_{attempt_number}",
+            failure_code=code,
+            failure_reason=reason,
+        )
 
 
 @pytest.fixture

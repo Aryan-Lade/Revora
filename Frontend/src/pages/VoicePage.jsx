@@ -80,7 +80,14 @@ const VoicePage = () => {
         </div>
         {callResult && (
           <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
-            {callResult.error ? (
+            {callResult.blocked ? (
+              <div className="p-3 bg-amber-50 border border-amber-300 rounded text-amber-900 space-y-1">
+                <div className="font-semibold text-amber-800">🛡️ Policy Blocked: Call Not Permitted</div>
+                <div><strong>Reason:</strong> {callResult.reason}</div>
+                {callResult.blocked_by && <div><strong>Blocked by rule:</strong> {callResult.blocked_by}</div>}
+                {callResult.next_contact_at && <div><strong>Next eligible contact:</strong> {new Date(callResult.next_contact_at).toLocaleString('en-IN')}</div>}
+              </div>
+            ) : callResult.error ? (
               <p className="text-red-600">{callResult.error}</p>
             ) : (
               <div className="space-y-1 text-gray-700">
