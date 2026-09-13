@@ -29,7 +29,9 @@ ACTION_MAP = {
 }
 
 
+@router.get("", response_model=List[schemas.RecoveryCase])
 @router.get("/", response_model=List[schemas.RecoveryCase])
+@router.get("/cases", response_model=List[schemas.RecoveryCase])
 def get_recovery_cases(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return (
         db.query(models.RecoveryCase)
