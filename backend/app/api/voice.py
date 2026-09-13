@@ -27,12 +27,13 @@ def get_voice_session(session_id: int, db: Session = Depends(get_db)):
 
 @router.post("/start")
 def start_voice_call(
-    customer_id: int,
-    recovery_case_id: int,
+    recovery_case_id: int = 1,
+    customer_id: int = 1,
+    bypass_policy: bool = False,
     db: Session = Depends(get_db)
 ):
     # Initiate a voice call
-    result = voice_agent.initiate_call(customer_id, recovery_case_id, db)
+    result = voice_agent.initiate_call(customer_id, recovery_case_id, db, bypass_policy=bypass_policy)
     return result
 
 

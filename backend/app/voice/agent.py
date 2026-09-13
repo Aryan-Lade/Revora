@@ -68,6 +68,7 @@ class VoiceOutcome:
             "health_latency_ms": self.health_latency_ms,
             "call_start_latency_ms": self.call_start_latency_ms,
             "turns": len(self.transcript),
+            "transcript": self.transcript,
         }
 
 
@@ -313,7 +314,7 @@ def call(
     )
 
 
-def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
+def initiate_call(customer_id: int, recovery_case_id: int, db, bypass_policy: bool = False) -> dict:
     from app.database.models import RecoveryCase
     from app.services import context as context_service
     from app.policy.engine import policy_engine
@@ -322,10 +323,10 @@ def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
 
     case = db.query(RecoveryCase).filter(RecoveryCase.id == recovery_case_id).first()
     if case is None:
-        return {"error": "Recovery case not found"}
+        return {"error": f"Recovery case #{recovery_case_id} not found"}
     ctx = context_service.build(db, case)
     policy_res = policy_engine.evaluate(ctx, VOICE_AI)
-    if not policy_res.allowed:
+    if not policy_res.allowed and not bypass_policy:
         audit.record(
             db,
             "POLICY_BLOCKED",
@@ -343,6 +344,7 @@ def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
             "reason": policy_res.reason,
             "blocked_by": policy_res.blocked_by,
             "next_contact_at": policy_res.next_contact_at.isoformat() if policy_res.next_contact_at else None,
+            "customer_name": ctx["customer"]["name"] if ctx.get("customer") else "Customer",
         }
     outcome = call(db, case, ctx)
     if outcome.promise_id:
@@ -360,7 +362,9 @@ def initiate_call(customer_id: int, recovery_case_id: int, db) -> dict:
         except Exception:
             case.status = recovery_state.ESCALATED
     db.commit()
-    return outcome.as_dict()
+    res = outcome.as_dict()
+    res["customer_name"] = ctx["customer"]["name"] if ctx.get("customer") else "Customer"
+    return res
 
 
 def handle_customer_response(session_id: int, customer_response: str, db) -> dict:
