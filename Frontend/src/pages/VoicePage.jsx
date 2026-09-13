@@ -186,23 +186,46 @@ const VoicePage = () => {
               }}
             >
               {cases.length > 0 ? (
-                cases.map(c => (
-                  <option key={c.id} value={c.id} style={{ background: '#0f172a', color: '#f8fafc' }}>
-                    Case #{c.id} — {c.customer?.name || `Customer #${c.customer_id}`} (₹{Number(c.amount_at_risk || 0).toLocaleString('en-IN')}) [{c.risk_score || 'Risk'}]
-                  </option>
-                ))
+                cases.map(c => {
+                  const isAryan = c.customer?.name === 'Aryan Lade' || c.customer?.phone?.includes('8262868803');
+                  return (
+                    <option key={c.id} value={c.id} style={{ background: '#0f172a', color: isAryan ? '#34d399' : '#f8fafc', fontWeight: isAryan ? 700 : 400 }}>
+                      {isAryan ? '🌟 ' : ''}Case #{c.id} — {c.customer?.name || `Customer #${c.customer_id}`} {c.customer?.phone ? `(${c.customer.phone})` : ''} (₹{Number(c.amount_at_risk || 0).toLocaleString('en-IN')}) [{c.recommended_channel || c.risk_score || 'Voice'}]
+                    </option>
+                  );
+                })
               ) : (
                 <>
-                  <option value="1">Case #1 — Rahul Sharma (₹4,999) [CRITICAL]</option>
-                  <option value="2">Case #2 — Amit Verma (₹35,000) [HIGH]</option>
-                  <option value="3">Case #3 — Neha Singh (₹4,999) [MEDIUM]</option>
-                  <option value="4">Case #4 — Rohit Mehta (₹4,499) [LOW]</option>
+                  <option value="5" style={{ background: '#0f172a', color: '#34d399', fontWeight: 700 }}>🌟 Case #5 — Aryan Lade (+918262868803) (₹4,999) [VOICE_AI]</option>
+                  <option value="1">Case #1 — Rahul Sharma (+919876543210) (₹4,999) [CRITICAL]</option>
+                  <option value="2">Case #2 — Amit Verma (+919876543211) (₹35,000) [HIGH]</option>
+                  <option value="3">Case #3 — Neha Singh (+919876543212) (₹4,999) [MEDIUM]</option>
+                  <option value="4">Case #4 — Rohit Mehta (+919876543213) (₹4,499) [LOW]</option>
                 </>
               )}
             </select>
           </div>
 
-          <div style={{ alignSelf: 'flex-end', display: 'flex', gap: '0.5rem' }}>
+          <div style={{ alignSelf: 'flex-end', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {/* Quick Button to Select Aryan Lade */}
+            <button
+              onClick={() => {
+                const aryanCase = cases.find(c => c.customer?.name === 'Aryan Lade' || c.customer?.phone?.includes('8262868803'));
+                setSelectedCaseId(aryanCase ? String(aryanCase.id) : '5');
+              }}
+              style={{
+                padding: '0.625rem 0.9rem',
+                background: 'rgba(52, 211, 153, 0.15)',
+                color: '#34d399',
+                border: '1px solid rgba(52, 211, 153, 0.4)',
+                borderRadius: '0.625rem',
+                fontSize: '0.8rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              👤 Select Aryan Lade
+            </button>
             <button
               onClick={() => handleDemoCall(false)}
               disabled={callLoading}
@@ -243,6 +266,26 @@ const VoicePage = () => {
             </button>
           </div>
         </div>
+
+        {/* Selected Customer Target Details */}
+        {(() => {
+          const cur = cases.find(c => String(c.id) === String(selectedCaseId)) ||
+            (selectedCaseId === '5' ? { customer: { name: 'Aryan Lade', phone: '+918262868803', email: 'aryan.lade@revora.ai' }, amount_at_risk: 4999 } : null);
+          if (!cur) return null;
+          return (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap',
+              padding: '0.65rem 1rem', background: 'rgba(99,102,241,0.08)',
+              border: '1px solid rgba(99,102,241,0.2)', borderRadius: '0.625rem',
+              fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '0.5rem'
+            }}>
+              <span>👤 <strong>Customer:</strong> <span style={{ color: '#f8fafc', fontWeight: 700 }}>{cur.customer?.name || 'Aryan Lade'}</span></span>
+              <span>📱 <strong>Phone:</strong> <span style={{ color: '#34d399', fontWeight: 700 }}>{cur.customer?.phone || '+91 8262868803'}</span></span>
+              <span>💳 <strong>Amount at Risk:</strong> <span style={{ color: '#fbbf24', fontWeight: 700 }}>₹{Number(cur.amount_at_risk || 4999).toLocaleString('en-IN')}</span></span>
+              <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: '#818cf8', fontWeight: 600 }}>AI Voice Call Route: Direct</span>
+            </div>
+          );
+        })()}
 
         {/* Call Result / Dialog Simulation */}
         {callResult && (
@@ -304,7 +347,7 @@ const VoicePage = () => {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#34d399', boxShadow: '0 0 10px #34d399' }} />
                     <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc' }}>
-                      Call Completed with {callResult.customer_name || 'Customer'}
+                      Call Completed with {callResult.customer_name || 'Customer'} {callResult.customer_phone ? `(${callResult.customer_phone})` : ''}
                     </span>
                     <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '1rem', background: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 600 }}>
                       Intent: {callResult.intent || callResult.status}

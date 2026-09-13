@@ -21,9 +21,74 @@ def _utc(days_ago: float = 0, hour: int | None = None) -> datetime:
 
 
 def seed_if_empty(db: Session) -> None:
-    if db.query(models.Customer).count() > 0:
-        return
-    _seed(db)
+    if db.query(models.Customer).count() == 0:
+        _seed(db)
+    _ensure_aryan_case(db)
+
+
+def _ensure_aryan_case(db: Session) -> None:
+    aryan = db.query(models.Customer).filter(models.Customer.phone == "+918262868803").first()
+    if not aryan:
+        aryan = models.Customer(
+            name="Aryan Lade",
+            email="aryan.lade@revora.ai",
+            phone="+918262868803",
+            lifetime_value=75000,
+            successful_payments=24,
+            failed_payments=1,
+            total_spent=72000,
+            recoveries_succeeded=2,
+            recoveries_failed=0,
+            engagement_score=0.98,
+            preferred_channel=VOICE_AI,
+            email_opt_in=True,
+            sms_opt_in=True,
+            voice_opt_in=True,
+            opted_out=False,
+            risk_segment="low",
+            relationship_risk=0.03,
+        )
+        db.add(aryan)
+        db.flush()
+
+    sub = db.query(models.Subscription).filter(models.Subscription.customer_id == aryan.id).first()
+    if not sub:
+        sub = models.Subscription(
+            customer_id=aryan.id,
+            external_id=f"sub_aryan_{aryan.id:04d}",
+            plan_name="Pro Annual",
+            amount=4999,
+            currency="INR",
+            billing_cycle="annual",
+            status="active",
+            started_at=_utc(120),
+            next_billing_at=_utc(-1),
+            failed_attempts=1,
+        )
+        db.add(sub)
+        db.flush()
+
+    case = db.query(models.RecoveryCase).filter(models.RecoveryCase.customer_id == aryan.id).first()
+    if not case:
+        pay = _make_payment(
+            aryan.id, sub.id, 4999, payment_state.FAILED,
+            "temporary bank timeout", "GATEWAY_TIMEOUT", "card", 1, 0.2
+        )
+        db.add(pay)
+        db.flush()
+
+        case = _make_case(
+            aryan.id, pay.id, sub.id,
+            4999, "TEMPORARY_BANK_TIMEOUT", recovery_state.RECOMMENDED,
+            52, "HIGH", 0.94, 4699.00, 0.03, "HIGH",
+            "RC-DEMO-ARYAN", "VOICE_AI", "VOICE_AI", 0.94,
+            attempt_count=0, contact_count=0, days_ago=0.2,
+        )
+        db.add(case)
+        db.flush()
+        _audit_chain(db, case, pay, 0.94)
+
+    db.commit()
 
 
 def _seed(db: Session) -> None:
@@ -143,6 +208,23 @@ def _seed_customers(db: Session) -> list[models.Customer]:
             opted_out=False,
             risk_segment="medium",
             relationship_risk=0.18,
+        ),
+        models.Customer(
+            name="Aryan Lade",
+            email="aryan.lade@revora.ai",
+            phone="+918262868803",
+            lifetime_value=75000,
+            successful_payments=24,
+            failed_payments=1,
+            total_spent=72000,
+            recoveries_succeeded=2,
+            recoveries_failed=0,
+            engagement_score=0.98,
+            preferred_channel=VOICE_AI,
+            email_opt_in=True, sms_opt_in=True, voice_opt_in=True,
+            opted_out=False,
+            risk_segment="low",
+            relationship_risk=0.03,
         ),
     ]
     db.add_all(demo)
