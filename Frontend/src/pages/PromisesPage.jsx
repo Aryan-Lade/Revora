@@ -1,57 +1,84 @@
 import React from 'react';
 import { useApi } from '../hooks/useApi';
 
-const STATUS_COLORS = {
-  ACTIVE:    'bg-blue-100 text-blue-800',
-  FULFILLED: 'bg-green-100 text-green-800',
-  BROKEN:    'bg-red-100 text-red-800',
-  EXPIRED:   'bg-gray-100 text-gray-600',
-  CANCELLED: 'bg-yellow-100 text-yellow-800',
+const STATUS_STYLE = {
+  ACTIVE:    { background: 'rgba(99,102,241,0.15)',  color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' },
+  FULFILLED: { background: 'rgba(16,185,129,0.15)',  color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' },
+  BROKEN:    { background: 'rgba(239,68,68,0.15)',   color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' },
+  EXPIRED:   { background: 'rgba(100,116,139,0.15)', color: '#64748b', border: '1px solid rgba(100,116,139,0.3)' },
+  CANCELLED: { background: 'rgba(245,158,11,0.15)',  color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' },
 };
+
+const Badge = ({ label }) => {
+  const s = STATUS_STYLE[label] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)' };
+  return <span style={{ ...s, padding: '0.2rem 0.65rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: 600 }}>{label}</span>;
+};
+
+const th = { padding: '0.75rem 1rem', fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' };
 
 const PromisesPage = () => {
   const { data: promises, loading, error } = useApi('/api/promises');
 
-  if (loading) return <div className="p-6 text-gray-500">Loading promises...</div>;
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 44, height: 44, border: '3px solid rgba(99,102,241,0.15)', borderTopColor: '#818cf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <p style={{ color: '#475569', fontSize: '0.875rem' }}>Loading promises...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ padding: '1.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '0.875rem', color: '#f87171' }}>
+      Error: {error}
+    </div>
+  );
 
   const list = Array.isArray(promises) ? promises : [];
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Promises to Pay</h1>
+    <div>
+      <div style={{ marginBottom: '1.75rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: '0.2rem' }}>Promises to Pay</h1>
+        <p style={{ fontSize: '0.825rem', color: '#475569' }}>{list.length} commitment{list.length !== 1 ? 's' : ''} recorded</p>
+      </div>
 
       {list.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6 text-gray-500">No promises to pay recorded.</div>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', padding: '3rem', textAlign: 'center', color: '#475569' }}>
+          <p style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🤝</p>
+          <p>No promises to pay recorded yet.</p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Customer', 'Amount', 'Promised Date', 'Channel', 'Status', 'Next Eligible Contact'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {list.map((p, i) => (
-                <tr key={p.id ?? i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-medium text-gray-900">{p.customer_name || `Customer #${p.customer_id}`}</td>
-                  <td className="px-4 py-3 text-sm font-medium">₹{Number(p.amount).toLocaleString('en-IN')}</td>
-                  <td className="px-4 py-3 text-sm">{new Date(p.promised_date).toLocaleDateString('en-IN')}</td>
-                  <td className="px-4 py-3 text-sm">{p.channel}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[p.status] ?? 'bg-gray-100 text-gray-700'}`}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-indigo-700 font-medium">
-                    {p.next_eligible_contact ? new Date(p.next_eligible_contact).toLocaleDateString('en-IN') : '—'}
-                  </td>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
+                  {['Customer', 'Amount', 'Promised Date', 'Channel', 'Status', 'Next Eligible Contact'].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {list.map((p, i) => (
+                  <tr key={p.id ?? i} style={{ borderBottom: '1px solid rgba(99,102,241,0.08)', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', fontWeight: 600, color: '#e2e8f0' }}>{p.customer_name || `Customer #${p.customer_id}`}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', fontWeight: 700, color: '#34d399' }}>₹{Number(p.amount).toLocaleString('en-IN')}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{new Date(p.promised_date).toLocaleDateString('en-IN')}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{p.channel}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}><Badge label={p.status} /></td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#818cf8', fontWeight: 500 }}>
+                      {p.next_eligible_contact ? new Date(p.next_eligible_contact).toLocaleDateString('en-IN') : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

@@ -1,140 +1,180 @@
 import React, { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
+
+const InfoBox = ({ label, value }) => (
+  <div style={{ background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(99,102,241,0.18)', borderRadius: '0.75rem', padding: '0.875rem 1rem', textAlign: 'center' }}>
+    <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.3rem' }}>{label}</div>
+    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#e2e8f0' }}>{value}</div>
+  </div>
+);
 
 const VoicePage = () => {
-  const [refetchKey, setRefetchKey] = useState(0);
-  const { data: voiceSessions, loading }       = useApi('/api/voice/sessions', refetchKey);
+  const [refetchKey, setRefetchKey]   = useState(0);
+  const { data: voiceSessions, loading }        = useApi('/api/voice/sessions', refetchKey);
   const { data: voiceHealth,   loading: hLoad } = useApi('/api/voice/health', refetchKey);
-  const [callResult, setCallResult] = useState(null);
+  const [callResult, setCallResult]   = useState(null);
   const [callLoading, setCallLoading] = useState(false);
   const [caseIdInput, setCaseIdInput] = useState('');
 
-  if (loading || hLoad) return <div className="p-6 text-gray-500">Loading voice data...</div>;
+  if (loading || hLoad) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 44, height: 44, border: '3px solid rgba(99,102,241,0.15)', borderTopColor: '#818cf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <p style={{ color: '#475569', fontSize: '0.875rem' }}>Loading voice data...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
 
   const sessions = Array.isArray(voiceSessions) ? voiceSessions : [];
 
   const handleDemoCall = async () => {
     const cid = parseInt(caseIdInput, 10);
     if (!cid) return alert('Enter a valid Case ID');
-    setCallLoading(true);
-    setCallResult(null);
+    setCallLoading(true); setCallResult(null);
     try {
       const res = await fetch(`${API_BASE}/api/voice/start?customer_id=1&recovery_case_id=${cid}`, { method: 'POST' });
       const data = await res.json();
-      setCallResult(data);
-      setRefetchKey(k => k + 1);
-    } catch (e) {
-      setCallResult({ error: e.message });
-    } finally {
-      setCallLoading(false);
-    }
+      setCallResult(data); setRefetchKey(k => k + 1);
+    } catch (e) { setCallResult({ error: e.message }); }
+    finally { setCallLoading(false); }
   };
 
-  return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Voice AI</h1>
+  const card = { background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.18)', borderRadius: '1rem', padding: '1.25rem 1.5rem', marginBottom: '1rem' };
+  const th   = { padding: '0.75rem 1rem', fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em' };
 
-      <div className="bg-white rounded-lg shadow p-5 mb-6">
-        <h2 className="text-base font-semibold text-gray-700 mb-3">Provider Health</h2>
+  return (
+    <div>
+      <div style={{ marginBottom: '1.75rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: '0.2rem' }}>Voice AI</h1>
+        <p style={{ fontSize: '0.825rem', color: '#475569' }}>AI-powered voice recovery calls & session logs</p>
+      </div>
+
+      {/* Provider Health */}
+      <div style={card}>
+        <h2 style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '1rem' }}>Provider Health</h2>
         {voiceHealth ? (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Status',        value: voiceHealth.status ?? 'HEALTHY' },
-              { label: 'Latency',       value: `${voiceHealth.latency_ms ?? 0} ms` },
-              { label: 'Success Count', value: voiceHealth.success_count ?? 0 },
-              { label: 'Failure Count', value: voiceHealth.failure_count ?? 0 },
-            ].map(({ label, value }) => (
-              <div key={label} className="text-center p-3 bg-gray-50 rounded">
-                <div className="text-xs text-gray-500 uppercase">{label}</div>
-                <div className="text-lg font-bold mt-1">{value}</div>
-              </div>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.75rem' }}>
+            <InfoBox label="Status"        value={voiceHealth.status ?? 'HEALTHY'} />
+            <InfoBox label="Latency"       value={`${voiceHealth.latency_ms ?? 0} ms`} />
+            <InfoBox label="Success Count" value={voiceHealth.success_count ?? 0} />
+            <InfoBox label="Failure Count" value={voiceHealth.failure_count ?? 0} />
           </div>
         ) : (
-          <p className="text-gray-400 text-sm">No health data available.</p>
+          <p style={{ color: '#475569', fontSize: '0.875rem' }}>No health data available.</p>
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-5 mb-6">
-        <h2 className="text-base font-semibold text-gray-700 mb-3">Demo Voice Call</h2>
-        <p className="text-sm text-gray-500 mb-3">
-          Enter a recovery case ID to simulate a voice call. The agent will attempt to recover the payment and may record a promise-to-pay.
+      {/* Demo Call */}
+      <div style={card}>
+        <h2 style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '0.6rem' }}>Demo Voice Call</h2>
+        <p style={{ fontSize: '0.825rem', color: '#475569', marginBottom: '1rem' }}>
+          Enter a recovery case ID to simulate an AI voice call. The agent will attempt to recover payment and may record a promise-to-pay.
         </p>
-        <div className="flex gap-3 items-center">
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
           <input
             type="number"
             value={caseIdInput}
             onChange={e => setCaseIdInput(e.target.value)}
             placeholder="Case ID (e.g. 1)"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            style={{
+              background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.3)',
+              borderRadius: '0.625rem', padding: '0.5rem 0.875rem',
+              fontSize: '0.825rem', color: '#e2e8f0', width: 160, outline: 'none',
+            }}
           />
           <button
             onClick={handleDemoCall}
             disabled={callLoading}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{
+              padding: '0.5rem 1.2rem',
+              background: callLoading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: '0.625rem',
+              fontSize: '0.825rem', fontWeight: 600, cursor: callLoading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 16px rgba(99,102,241,0.3)', opacity: callLoading ? 0.6 : 1,
+            }}
           >
-            {callLoading ? 'Calling...' : '📞 Start Demo Call'}
+            {callLoading ? '⏳ Calling...' : '📞 Start Demo Call'}
           </button>
         </div>
+
         {callResult && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg text-sm">
+          <div style={{ marginTop: '1rem', padding: '1rem', background: 'rgba(15,23,42,0.6)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '0.75rem', fontSize: '0.825rem' }}>
             {callResult.blocked ? (
-              <div className="p-3 bg-amber-50 border border-amber-300 rounded text-amber-900 space-y-1">
-                <div className="font-semibold text-amber-800">🛡️ Policy Blocked: Call Not Permitted</div>
-                <div><strong>Reason:</strong> {callResult.reason}</div>
-                {callResult.blocked_by && <div><strong>Blocked by rule:</strong> {callResult.blocked_by}</div>}
-                {callResult.next_contact_at && <div><strong>Next eligible contact:</strong> {new Date(callResult.next_contact_at).toLocaleString('en-IN')}</div>}
+              <div style={{ color: '#fbbf24' }}>
+                <div style={{ fontWeight: 700, marginBottom: '0.4rem' }}>🛡️ Policy Blocked</div>
+                <div style={{ color: '#94a3b8' }}><strong style={{ color: '#e2e8f0' }}>Reason:</strong> {callResult.reason}</div>
+                {callResult.blocked_by && <div style={{ color: '#94a3b8' }}><strong style={{ color: '#e2e8f0' }}>Rule:</strong> {callResult.blocked_by}</div>}
+                {callResult.next_contact_at && <div style={{ color: '#94a3b8' }}><strong style={{ color: '#e2e8f0' }}>Next Contact:</strong> {new Date(callResult.next_contact_at).toLocaleString('en-IN')}</div>}
               </div>
             ) : callResult.error ? (
-              <p className="text-red-600">{callResult.error}</p>
+              <p style={{ color: '#f87171' }}>{callResult.error}</p>
             ) : (
-              <div className="space-y-1 text-gray-700">
-                <div><strong>Status:</strong> {callResult.status}</div>
-                <div><strong>Intent:</strong> {callResult.intent}</div>
-                <div><strong>Answered:</strong> {callResult.answered ? 'Yes' : 'No'}</div>
-                <div><strong>Paid on call:</strong> {callResult.paid ? 'Yes' : 'No'}</div>
-                <div><strong>Promise created:</strong> {callResult.promise_id ? `Yes (ID: ${callResult.promise_id})` : 'No'}</div>
-                <div><strong>Warm channel:</strong> {callResult.warm ? 'Yes' : 'No'}</div>
-                <div><strong>Health latency:</strong> {callResult.health_latency_ms} ms</div>
-                <div><strong>Start latency:</strong> {callResult.call_start_latency_ms} ms</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem', color: '#94a3b8' }}>
+                {[
+                  ['Status', callResult.status],
+                  ['Intent', callResult.intent],
+                  ['Answered', callResult.answered ? '✓ Yes' : '✗ No'],
+                  ['Paid on call', callResult.paid ? '✓ Yes' : '✗ No'],
+                  ['Promise created', callResult.promise_id ? `Yes (ID: ${callResult.promise_id})` : 'No'],
+                  ['Warm channel', callResult.warm ? '✓ Yes' : 'No'],
+                  ['Health latency', `${callResult.health_latency_ms} ms`],
+                  ['Start latency', `${callResult.call_start_latency_ms} ms`],
+                ].map(([k, v]) => (
+                  <div key={k}><strong style={{ color: '#e2e8f0' }}>{k}:</strong> {v}</div>
+                ))}
               </div>
             )}
           </div>
         )}
       </div>
 
-      <h2 className="text-lg font-semibold mb-3">Voice Sessions</h2>
+      {/* Sessions Table */}
+      <h2 style={{ fontSize: '1rem', fontWeight: 700, color: '#e2e8f0', marginBottom: '0.875rem' }}>
+        Voice Sessions {sessions.length > 0 && <span style={{ color: '#64748b', fontWeight: 400 }}>({sessions.length})</span>}
+      </h2>
+
       {sessions.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6 text-gray-500">No voice sessions recorded. Use the demo call above to create one.</div>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', padding: '3rem', textAlign: 'center', color: '#475569' }}>
+          <p style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🎙️</p>
+          <p>No voice sessions yet. Use the Demo Call above to create one.</p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Case ID', 'Status', 'Intent', 'Warm', 'Latency (ms)', 'Started At', 'Promise', 'Recovered'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sessions.map((s, i) => (
-                <tr key={s.id ?? i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm">{s.recovery_case_id}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{s.status}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{s.intent ?? '—'}</td>
-                  <td className="px-4 py-3 text-sm">{s.warm ? '✓ Warm' : 'Cold'}</td>
-                  <td className="px-4 py-3 text-sm">{s.call_start_latency_ms}</td>
-                  <td className="px-4 py-3 text-sm">{new Date(s.started_at).toLocaleString()}</td>
-                  <td className="px-4 py-3 text-sm">{s.promise_created ? '✓ Yes' : '—'}</td>
-                  <td className="px-4 py-3 text-sm font-medium">₹{Number(s.recovered_amount ?? 0).toLocaleString('en-IN')}</td>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
+                  {['Case ID', 'Status', 'Intent', 'Warm', 'Latency (ms)', 'Started At', 'Promise', 'Recovered'].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {sessions.map((s, i) => (
+                  <tr key={s.id ?? i} style={{ borderBottom: '1px solid rgba(99,102,241,0.08)', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{s.recovery_case_id}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <span style={{ padding: '0.2rem 0.65rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: 600, background: 'rgba(99,102,241,0.15)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
+                        {s.status}
+                      </span>
+                    </td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{s.intent ?? '—'}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: s.warm ? '#34d399' : '#64748b' }}>{s.warm ? '✓ Warm' : 'Cold'}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{s.call_start_latency_ms}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.775rem', color: '#64748b' }}>{new Date(s.started_at).toLocaleString()}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: s.promise_created ? '#34d399' : '#475569' }}>{s.promise_created ? '✓ Yes' : '—'}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', fontWeight: 600, color: '#34d399' }}>₹{Number(s.recovered_amount ?? 0).toLocaleString('en-IN')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

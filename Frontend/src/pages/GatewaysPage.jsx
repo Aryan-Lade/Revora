@@ -1,13 +1,30 @@
 import React, { useState } from 'react';
 import { useApi } from '../hooks/useApi';
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000').replace(/\/$/, '');
 
-const STATUS_COLORS = {
-  HEALTHY:     'bg-green-100 text-green-800',
-  DEGRADED:    'bg-yellow-100 text-yellow-800',
-  UNAVAILABLE: 'bg-red-100 text-red-800',
+const STATUS_STYLE = {
+  HEALTHY:     { background: 'rgba(16,185,129,0.15)',  color: '#34d399', border: '1px solid rgba(16,185,129,0.3)' },
+  DEGRADED:    { background: 'rgba(245,158,11,0.15)',  color: '#fbbf24', border: '1px solid rgba(245,158,11,0.3)' },
+  UNAVAILABLE: { background: 'rgba(239,68,68,0.15)',   color: '#f87171', border: '1px solid rgba(239,68,68,0.3)' },
 };
+
+const Badge = ({ label }) => {
+  const s = STATUS_STYLE[label] || { background: 'rgba(100,116,139,0.15)', color: '#94a3b8', border: '1px solid rgba(100,116,139,0.3)' };
+  return <span style={{ ...s, padding: '0.2rem 0.65rem', borderRadius: '2rem', fontSize: '0.7rem', fontWeight: 600 }}>{label}</span>;
+};
+
+const th = { padding: '0.75rem 1rem', fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' };
+
+const StatCard = ({ label, value, color }) => (
+  <div style={{
+    background: 'rgba(15,23,42,0.7)', border: `1px solid ${color}33`,
+    borderRadius: '0.875rem', padding: '1rem', textAlign: 'center',
+  }}>
+    <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '0.4rem' }}>{label}</div>
+    <div style={{ fontSize: '2rem', fontWeight: 800, color }}>{value}</div>
+  </div>
+);
 
 const GatewaysPage = () => {
   const [refetchKey, setRefetchKey] = useState(0);
@@ -15,17 +32,29 @@ const GatewaysPage = () => {
   const [toggling, setToggling] = useState(null);
   const [toggleMsg, setToggleMsg] = useState(null);
 
-  if (loading) return <div className="p-6 text-gray-500">Loading gateways...</div>;
-  if (error)   return <div className="p-6 text-red-500">Error: {error}</div>;
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 44, height: 44, border: '3px solid rgba(99,102,241,0.15)', borderTopColor: '#818cf8', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem' }} />
+        <p style={{ color: '#475569', fontSize: '0.875rem' }}>Loading gateways...</p>
+      </div>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
+  );
+
+  if (error) return (
+    <div style={{ padding: '1.5rem', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: '0.875rem', color: '#f87171' }}>
+      Error: {error}
+    </div>
+  );
 
   const list = Array.isArray(gateways) ? gateways : [];
-  const healthy   = list.filter(g => g.status === 'HEALTHY').length;
-  const degraded  = list.filter(g => g.status === 'DEGRADED').length;
-  const unavail   = list.filter(g => g.status === 'UNAVAILABLE').length;
+  const healthy  = list.filter(g => g.status === 'HEALTHY').length;
+  const degraded = list.filter(g => g.status === 'DEGRADED').length;
+  const unavail  = list.filter(g => g.status === 'UNAVAILABLE').length;
 
   const handleToggle = async (gateway) => {
-    setToggling(gateway.id);
-    setToggleMsg(null);
+    setToggling(gateway.id); setToggleMsg(null);
     try {
       const res = await fetch(`${API_BASE}/api/gateways/${gateway.id}/toggle`, { method: 'POST' });
       const data = await res.json();
@@ -33,81 +62,87 @@ const GatewaysPage = () => {
       setRefetchKey(k => k + 1);
     } catch (e) {
       setToggleMsg('Toggle failed: ' + e.message);
-    } finally {
-      setToggling(null);
-    }
+    } finally { setToggling(null); }
   };
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold mb-6">Gateway Providers</h1>
+    <div>
+      <div style={{ marginBottom: '1.75rem' }}>
+        <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: '0.2rem' }}>Gateway Providers</h1>
+        <p style={{ fontSize: '0.825rem', color: '#475569' }}>Payment gateway health & adaptive failover management</p>
+      </div>
 
       {toggleMsg && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-900">
-          {toggleMsg}
+        <div style={{ marginBottom: '1rem', padding: '0.75rem 1rem', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.75rem', fontSize: '0.825rem', color: '#a5b4fc' }}>
+          ✓ {toggleMsg}
         </div>
       )}
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        {[
-          { label: 'Total',       value: list.length,  color: 'bg-white' },
-          { label: 'Healthy',     value: healthy,       color: 'bg-green-50' },
-          { label: 'Degraded',    value: degraded,      color: 'bg-yellow-50' },
-          { label: 'Unavailable', value: unavail,       color: 'bg-red-50' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className={`${color} rounded-lg shadow p-4 text-center`}>
-            <div className="text-xs text-gray-500 uppercase">{label}</div>
-            <div className="text-3xl font-bold mt-1">{value}</div>
-          </div>
-        ))}
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.875rem', marginBottom: '1.5rem' }}>
+        <StatCard label="Total Gateways" value={list.length}  color="#94a3b8" />
+        <StatCard label="Healthy"        value={healthy}       color="#34d399" />
+        <StatCard label="Degraded"       value={degraded}      color="#fbbf24" />
+        <StatCard label="Unavailable"    value={unavail}       color="#f87171" />
       </div>
 
       {unavail > 0 && healthy > 0 && (
-        <div className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-lg text-sm text-amber-900">
+        <div style={{ marginBottom: '1rem', padding: '0.875rem 1rem', background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: '0.75rem', fontSize: '0.825rem', color: '#fbbf24' }}>
           ⚠️ Adaptive failover active: {unavail} gateway(s) unavailable. Traffic routed to {healthy} healthy gateway(s).
         </div>
       )}
 
       {list.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-6 text-gray-500">No gateway providers found.</div>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', padding: '3rem', textAlign: 'center', color: '#475569' }}>
+          <p style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔗</p>
+          <p>No gateway providers configured.</p>
+        </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                {['Name', 'Label', 'Status', 'Priority', 'Latency (ms)', 'Successes', 'Failures', 'Capacity', 'Demo'].map(h => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {list.map((g, i) => (
-                <tr key={g.id ?? i} className="hover:bg-gray-50">
-                  <td className="px-4 py-3 text-sm font-mono font-medium">{g.name}</td>
-                  <td className="px-4 py-3 text-sm">{g.label}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[g.status] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {g.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm">{g.priority}</td>
-                  <td className="px-4 py-3 text-sm">{g.latency_ms}</td>
-                  <td className="px-4 py-3 text-sm text-green-700">{g.success_count}</td>
-                  <td className="px-4 py-3 text-sm text-red-600">{g.failure_count}</td>
-                  <td className="px-4 py-3 text-sm">{g.capacity}</td>
-                  <td className="px-4 py-3 text-sm">
-                    <button
-                      onClick={() => handleToggle(g)}
-                      disabled={toggling === g.id}
-                      className="px-2 py-1 rounded text-xs font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 disabled:opacity-50"
-                    >
-                      {toggling === g.id ? '...' : g.status === 'HEALTHY' ? 'Mark Unavailable' : 'Mark Healthy'}
-                    </button>
-                  </td>
+        <div style={{ background: 'rgba(15,23,42,0.8)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: '1rem', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid rgba(99,102,241,0.15)' }}>
+                  {['Name', 'Label', 'Status', 'Priority', 'Latency', 'Successes', 'Failures', 'Capacity', 'Action'].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {list.map((g, i) => (
+                  <tr key={g.id ?? i} style={{ borderBottom: '1px solid rgba(99,102,241,0.08)', transition: 'background 0.15s' }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(99,102,241,0.06)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                  >
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.775rem', fontFamily: 'monospace', color: '#a5b4fc', fontWeight: 600 }}>{g.name}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#e2e8f0' }}>{g.label}</td>
+                    <td style={{ padding: '0.75rem 1rem' }}><Badge label={g.status} /></td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{g.priority}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{g.latency_ms} ms</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', fontWeight: 600, color: '#34d399' }}>{g.success_count}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', fontWeight: 600, color: '#f87171' }}>{g.failure_count}</td>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.825rem', color: '#94a3b8' }}>{g.capacity}%</td>
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <button
+                        onClick={() => handleToggle(g)}
+                        disabled={toggling === g.id}
+                        style={{
+                          padding: '0.3rem 0.7rem', fontSize: '0.72rem', fontWeight: 600,
+                          borderRadius: '0.5rem', border: 'none', cursor: toggling === g.id ? 'not-allowed' : 'pointer',
+                          background: g.status === 'HEALTHY' ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)',
+                          color: g.status === 'HEALTHY' ? '#f87171' : '#34d399',
+                          opacity: toggling === g.id ? 0.5 : 1,
+                          transition: 'opacity 0.2s',
+                        }}
+                      >
+                        {toggling === g.id ? '...' : g.status === 'HEALTHY' ? 'Disable' : 'Enable'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>
