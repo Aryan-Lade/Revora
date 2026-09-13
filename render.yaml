@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: revora-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    pythonVersion: "3.11.9"
+    envVars:
+      - key: DEMO_MODE
+        value: "true"
+      - key: ENVIRONMENT
+        value: production
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: DATABASE_URL
+        value: sqlite:///./revora.db
+      - key: FRONTEND_URL
+        sync: false   # Set this manually in Render dashboard to your Vercel URL
+      - key: AI_MODEL
+        value: claude-opus-5
+      - key: VOICE_PROVIDER
+        value: demo
+      - key: EMAIL_PROVIDER
+        value: demo

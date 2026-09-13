@@ -10,6 +10,9 @@ class Settings(BaseSettings):
     demo_mode: bool = True
     database_url: str = "sqlite:///./revora.db"
     frontend_url: str = "http://localhost:5173"
+    # Comma-separated extra origins to allow (e.g. your Vercel URL).
+    # Example: CORS_ORIGINS=https://revora.vercel.app,https://revora-git-main.vercel.app
+    cors_origins: str = ""
     port: int = 8000
 
     razorpay_key_id: str = ""
@@ -53,7 +56,17 @@ class Settings(BaseSettings):
 
     @property
     def allowed_origins(self) -> list[str]:
-        origins = {self.frontend_url, "http://localhost:5173", "http://127.0.0.1:5173"}
+        origins: set[str] = {
+            "http://localhost:5173",
+            "http://127.0.0.1:5173",
+            self.frontend_url,
+        }
+        # Add any extra origins from CORS_ORIGINS env var (comma-separated)
+        if self.cors_origins:
+            for o in self.cors_origins.split(","):
+                o = o.strip()
+                if o:
+                    origins.add(o)
         return sorted(o for o in origins if o)
 
 
