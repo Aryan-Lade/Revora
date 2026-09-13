@@ -9,12 +9,12 @@ import GatewaysPage from './pages/GatewaysPage';
 import './App.css';
 
 const NAV_LINKS = [
-  { to: '/dashboard',      label: 'Dashboard' },
-  { to: '/recovery-queue', label: 'Recovery Queue' },
-  { to: '/promises',       label: 'Promises to Pay' },
-  { to: '/analytics',      label: 'Analytics' },
-  { to: '/voice',          label: 'Voice AI' },
-  { to: '/gateways',       label: 'Gateways' },
+  { to: '/dashboard',      label: 'Dashboard',       icon: '📊' },
+  { to: '/recovery-queue', label: 'Recovery Queue',   icon: '⚡' },
+  { to: '/promises',       label: 'Promises',         icon: '🤝' },
+  { to: '/analytics',      label: 'Analytics',        icon: '📈' },
+  { to: '/voice',          label: 'Voice AI',         icon: '🎙️' },
+  { to: '/gateways',       label: 'Gateways',         icon: '🔗' },
 ];
 
 function App() {
@@ -23,12 +23,10 @@ function App() {
       <div className="app">
         <nav className="navbar">
           <div className="navbar-brand">
-            <span style={{ fontSize: '1.1rem', fontWeight: 700, letterSpacing: '-0.01em' }}>
-              ⚡ Revora
-            </span>
+            <span>⚡</span> Revora
           </div>
           <ul className="navbar-menu">
-            {NAV_LINKS.map(({ to, label }) => (
+            {NAV_LINKS.map(({ to, label, icon }) => (
               <li key={to}>
                 <NavLink
                   to={to}
@@ -36,6 +34,7 @@ function App() {
                     isActive ? 'nav-link nav-link-active' : 'nav-link'
                   }
                 >
+                  <span style={{ marginRight: '0.3rem', fontSize: '0.85em' }}>{icon}</span>
                   {label}
                 </NavLink>
               </li>

@@ -19,46 +19,88 @@ const DashboardPage = () => {
   };
 
   if (overviewLoading || revenueLoading || trendsLoading) {
-    return <div className="p-6 text-gray-500">Loading dashboard...</div>;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            width: 44, height: 44, border: '3px solid rgba(99,102,241,0.15)',
+            borderTopColor: '#818cf8', borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite', margin: '0 auto 1rem',
+          }} />
+          <p style={{ color: '#475569', fontSize: '0.875rem' }}>Loading dashboard...</p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Revora Dashboard</h1>
-        <div className="flex gap-3">
-          {batchMsg && <span className="text-sm text-indigo-700 self-center">{batchMsg}</span>}
+    <div>
+      {/* Page header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.75rem' }}>
+        <div>
+          <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em', marginBottom: '0.2rem' }}>
+            Revenue Recovery
+          </h1>
+          <p style={{ fontSize: '0.825rem', color: '#475569' }}>AI-driven recovery dashboard — real-time insights</p>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          {batchMsg && (
+            <span style={{
+              fontSize: '0.775rem', color: '#a5b4fc',
+              background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
+              padding: '0.3rem 0.8rem', borderRadius: '2rem',
+            }}>
+              ✓ {batchMsg}
+            </span>
+          )}
           <button
             onClick={handleBatch}
             disabled={batchLoading}
-            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium disabled:opacity-50"
+            style={{
+              padding: '0.5rem 1.2rem',
+              background: batchLoading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff', border: 'none', borderRadius: '0.625rem',
+              fontSize: '0.825rem', fontWeight: 600, cursor: batchLoading ? 'not-allowed' : 'pointer',
+              boxShadow: '0 4px 16px rgba(99,102,241,0.3)', transition: 'opacity 0.2s',
+              opacity: batchLoading ? 0.6 : 1,
+            }}
           >
-            {batchLoading ? 'Scanning...' : '⚡ Run Recovery Scan'}
+            {batchLoading ? '⏳ Scanning...' : '⚡ Run Recovery Scan'}
           </button>
           <Link
             to="/recovery-queue"
-            className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg text-sm font-medium"
+            style={{
+              padding: '0.5rem 1.1rem',
+              background: 'rgba(15,23,42,0.8)', color: '#a5b4fc',
+              border: '1px solid rgba(99,102,241,0.25)', borderRadius: '0.625rem',
+              fontSize: '0.825rem', fontWeight: 600, textDecoration: 'none',
+              transition: 'background 0.2s',
+            }}
           >
             View Queue →
           </Link>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card title="Revenue At Risk"       value={overviewData?.revenue_at_risk ?? 0}      prefix="₹" />
-        <Card title="Expected Recoverable"  value={overviewData?.expected_recoverable ?? 0}  prefix="₹" />
-        <Card title="Recovered Revenue"     value={overviewData?.recovered_revenue ?? 0}     prefix="₹" />
-        <Card title="Recovery Rate"         value={overviewData?.recovery_rate ?? 0}         suffix="%" />
+      {/* Primary KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.25rem' }}>
+        <Card title="Revenue At Risk"      value={overviewData?.revenue_at_risk ?? 0}      prefix="₹" icon="🔥" color="rose" />
+        <Card title="Expected Recoverable" value={overviewData?.expected_recoverable ?? 0}  prefix="₹" icon="📈" color="amber" />
+        <Card title="Recovered Revenue"    value={overviewData?.recovered_revenue ?? 0}     prefix="₹" icon="✅" color="emerald" />
+        <Card title="Recovery Rate"        value={overviewData?.recovery_rate ?? 0}         suffix="%" icon="🎯" color="indigo" />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <Cards title="Active Cases"     value={overviewData?.active_cases ?? 0} />
-        <Cards title="Escalated Cases"  value={overviewData?.escalated_cases ?? 0} />
-        <Cards title="Policy Blocks"    value={overviewData?.policy_blocks ?? 0} />
-        <Cards title="Promises to Pay"  value={overviewData?.promises_to_pay ?? 0} />
+      {/* Secondary stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.875rem', marginBottom: '1.5rem' }}>
+        <Cards title="Active Cases"    value={overviewData?.active_cases ?? 0}    icon="⚡" />
+        <Cards title="Escalated Cases" value={overviewData?.escalated_cases ?? 0} icon="🚨" />
+        <Cards title="Policy Blocks"   value={overviewData?.policy_blocks ?? 0}   icon="🛡️" />
+        <Cards title="Promises to Pay" value={overviewData?.promises_to_pay ?? 0} icon="🤝" />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Charts */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
         <Chart
           title="Recovery Funnel"
           type="bar"
@@ -71,7 +113,7 @@ const DashboardPage = () => {
           ]}
         />
         <Chart
-          title="Recovery Trends"
+          title="Recovery Trends (6 months)"
           type="line"
           data={(trendsData?.monthly?.labels ?? []).map((label, i) => ({
             name:      label,
